@@ -3,7 +3,7 @@ WORKDIR /app
 COPY . /app/.
 RUN mvn -f /app/pom.xml clean package -Dmaven.test.skip=true
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-ubi9-minimal
 WORKDIR /app
 COPY --from=builder /app/target/*.jar /app/*.jar
 ENTRYPOINT ["java", "-jar", "/app/*.jar"]
