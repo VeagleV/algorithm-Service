@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class AlgoRequest {
 
-    private Integer warehouseid;
+    private Integer warehouseId;
 
     private Condition condition;
 
