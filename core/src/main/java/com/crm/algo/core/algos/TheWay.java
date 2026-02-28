@@ -12,10 +12,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.*;
 
+@Component
 public class TheWay {
 
     @Value("${API_KEY}")
@@ -175,7 +177,7 @@ public class TheWay {
             while (currentQuantity < itemOverallQuantity){
                 currentQuantity += cheapers.get(i).getItemQuantityToTransport();
                 if(currentQuantity > itemOverallQuantity){
-                    cheapers.get(i).setItemQuantityToTransport(cheapers.get(i).getItemQuantityToTransport() - currentQuantity - itemOverallQuantity);
+                    cheapers.get(i).setItemQuantityToTransport(cheapers.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
                 }
                 answer.add(cheapers.get(i));
                 i++;
@@ -215,7 +217,7 @@ public class TheWay {
             while (currentQuantity < itemOverallQuantity){
                 currentQuantity += fasters.get(i).getItemQuantityToTransport();
                 if(currentQuantity > itemOverallQuantity){
-                    fasters.get(i).setItemQuantityToTransport(fasters.get(i).getItemQuantityToTransport() - currentQuantity - itemOverallQuantity);
+                    fasters.get(i).setItemQuantityToTransport(fasters.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
                 }
                 answer.add(fasters.get(i));
                 i++;
