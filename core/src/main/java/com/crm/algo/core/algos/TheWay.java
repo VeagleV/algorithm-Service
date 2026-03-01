@@ -10,6 +10,8 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+
+import com.crm.algo.core.services.AlgoService;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -20,14 +22,21 @@ import java.util.*;
 @Component
 public class TheWay {
 
+    private final AlgoService algoService;
+
+
     @Value("${API_KEY}")
-    static String API_KEY;
+    String API_KEY;
 
-    private static Map<Integer, Integer> warehouseItemQuantity = new HashMap<>();
-    private static List<TransportModel> transportModels = new ArrayList<>();
-    private static Map<Integer, Double> warehouseDistance = new HashMap<>();
+    private Map<Integer, Integer> warehouseItemQuantity = new HashMap<>();
+    private List<TransportModel> transportModels = new ArrayList<>();
+    private Map<Integer, Double> warehouseDistance = new HashMap<>();
 
-    public static double DistanceGetter(String lon1, String lat1, String lon2, String lat2) {
+    public TheWay(AlgoService algoService) {
+        this.algoService = algoService;
+    }
+
+    public double DistanceGetter(String lon1, String lat1, String lon2, String lat2) {
         String url = String.format(
                 "https://api.openrouteservice.org/v2/directions/driving-car" +
                         "?&start=%s,%s&end=%s,%s",
@@ -65,13 +74,17 @@ public class TheWay {
         return distance;
     }
 
-    public static void mainCalculate(AlgoRequest algoRequest){
-        List<ItemListResponse> itemList = http.request(itemId, warehouseId);
+    public void mainCalculate(AlgoRequest algoRequest){
+        List<Integer> itemsId = algoRequest.getShipmentRequestList().stream().map(ShipmentRequest::getItemId).toList();
+        //<ItemListResponse> itemList = http.request(itemId, warehouseId);
+        List<ItemListResponse> itemList = algoService.getItemLists(itemsId);
         List<Integer> warehousesId = itemList.stream()
                 .map(ItemListResponse::getWarehouseId)
                 .toList(); // получаем все warehouse`ы из itemList`а
-        List<WarehouseResponse> warehouseList = http.request(warehousesId); // из списка выше получаем всю инфу об этих складах
-        List<TransportResponse> transportList = http.request(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
+        List<WarehouseResponse> warehouseList = algoService.getWarehouses(warehousesId);
+        //List<WarehouseResponse> warehouseList = http.request(warehousesId); // из списка выше получаем всю инфу об этих складах
+        //List<TransportResponse> transportList = http.request(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
+        List<TransportResponse> transportList = algoService.getTransports(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
         // один раз заполняем все дистанции между src складом и остальныии
         WarehouseResponse warehouseSrc = warehouseList.stream()
                 .filter(w -> w.getWarehouseId().equals(algoRequest.getWarehouseId()))
@@ -95,7 +108,7 @@ public class TheWay {
                     .build();
             transportModels.add(transportModel);
         }
-
+        List<List<TransportModel>> allAnswers = new ArrayList<>(List.of());
         for(ShipmentRequest shipment : algoRequest.getShipmentRequestList()){
             List<ItemListResponse> neededItems = new ArrayList<>(); // только товар shipment_item_id = itemlist_item_id
             int itemQuantity = 0; // подсчет количества товаров на всех складах
@@ -112,25 +125,27 @@ public class TheWay {
             if (itemQuantity < shipment.getQuantity()){
                 continue; // !!!!!!!!!!!!!!!!!!!! нет столька товара
             }
-            calculate(algoRequest, neededItems);
+            allAnswers.add(calculate(algoRequest, neededItems));
         }
+
+        System.out.println(allAnswers);
     }
 
-    public static void calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) {
+    public List<TransportModel> calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) {
         warehouseItemQuantity.clear();
         for(ItemListResponse itemListResponse : neededItems) {
             warehouseItemQuantity.put(itemListResponse.getWarehouseId(), itemListResponse.getQuantity());
         }
-        
+        List<TransportModel> answer = List.of();
         if(algoRequest.getCondition() == Condition.CHEAPER){
-            cheaper(algoRequest);
+            answer = cheaper(algoRequest);
         } else if (algoRequest.getCondition() == Condition.FASTER) {
-            faster(algoRequest);
+            answer = faster(algoRequest);
         }
-
+        return answer;
     }
 
-    private static List<TransportModel> cheaper(AlgoRequest algoRequest) {
+    private List<TransportModel> cheaper(AlgoRequest algoRequest) {
         List<TransportModel> answer = new ArrayList<>();
         for(ShipmentRequest shipmentRequest : algoRequest.getShipmentRequestList()){
             List<TransportModel> cheapers = new ArrayList<>();
@@ -187,7 +202,7 @@ public class TheWay {
     }
 
 
-    private static List<TransportModel> faster(AlgoRequest algoRequest) {
+    private List<TransportModel> faster(AlgoRequest algoRequest) {
         List<TransportModel> answer = new ArrayList<>();
         for(ShipmentRequest shipmentRequest : algoRequest.getShipmentRequestList()){
             List<TransportModel> fasters = new ArrayList<>();
