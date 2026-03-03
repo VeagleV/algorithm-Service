@@ -2,6 +2,8 @@ package com.crm.algo.core.algos;
 
 import com.crm.algo.core.dto.*;
 import com.crm.algo.core.enums.Condition;
+import com.crm.algo.core.exceptions.NotEnoughItemsException;
+import com.crm.algo.core.exceptions.NotEnoughTransportsException;
 import com.crm.algo.core.models.TransportModel;
 
 import java.io.IOException;
@@ -18,7 +20,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public class TheWay {
@@ -75,7 +76,7 @@ public class TheWay {
         return distance;
     }
 
-    public void mainCalculate(AlgoRequest algoRequest){
+    public void mainCalculate(AlgoRequest algoRequest) throws NotEnoughItemsException, NotEnoughTransportsException {
         List<Integer> itemsId = algoRequest.getShipmentRequestList().stream().map(ShipmentRequest::getItemId).toList();
         //<ItemListResponse> itemList = http.request(itemId, warehouseId);
         List<ItemListResponse> itemList = algoService.getItemLists(itemsId);
@@ -122,14 +123,14 @@ public class TheWay {
                 neededItems.add(item);
             }
             if (itemQuantity < shipment.getQuantity()){
-                continue; // !!!!!!!!!!!!!!!!!!!! нет столька товара
+                throw new NotEnoughItemsException("На складах не существует столько товара, с item_id = " + shipment.getItemId());
             }
             allAnswers.add(calculate(algoRequest, neededItems));
         }
         System.out.println(allAnswers);
     }
 
-    public List<TransportModel> calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) {
+    public List<TransportModel> calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) throws NotEnoughTransportsException {
         warehouseItemQuantity.clear();
         for(ItemListResponse itemListResponse : neededItems) {
             warehouseItemQuantity.put(itemListResponse.getWarehouseId(), itemListResponse.getQuantity());
@@ -144,7 +145,7 @@ public class TheWay {
         return answer;
     }
 
-    private List<TransportModel> cheaper(AlgoRequest algoRequest, Integer itemId) {
+    private List<TransportModel> cheaper(AlgoRequest algoRequest, Integer itemId) throws NotEnoughTransportsException {
         List<TransportModel> answer = new ArrayList<>();
         List<TransportModel> cheapers = new ArrayList<>();
 
@@ -154,6 +155,10 @@ public class TheWay {
         Set<TransportModel> currentTransportModels = new HashSet<>(transportModels.stream()
                 .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
                 .toList());
+
+        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) >= itemOverallQuantity){
+            throw new NotEnoughTransportsException("Нет столько транспорта для перевозки товара " + itemId);
+        }
 
         for (TransportModel transportModel : currentTransportModels) {
             transportModel.setItemQuantityToTransport(
@@ -217,11 +222,19 @@ public class TheWay {
     }
 
 
-    private List<TransportModel> faster(AlgoRequest algoRequest, Integer itemId) {
+    private List<TransportModel> faster(AlgoRequest algoRequest, Integer itemId) throws NotEnoughTransportsException {
         List<TransportModel> answer = new ArrayList<>();
         List<TransportModel> fasters = new ArrayList<>();
         int itemOverallQuantity = algoRequest.getShipmentRequestList().stream()
                 .filter(shipmentRequest -> Objects.equals(shipmentRequest.getItemId(), itemId)).map(ShipmentRequest::getQuantity).reduce(0, Integer::sum);
+
+        Set<TransportModel> currentTransportModels = new HashSet<>(transportModels.stream()
+                .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
+                .toList());
+
+        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) >= itemOverallQuantity){
+            throw new NotEnoughTransportsException("Нет столько транспорта для перевозки товара " + itemId);
+        }
 
         transportModels.sort(Comparator.comparing(TransportModel::getOverallTime));
         int currentQuantity = 0, i = 0;
