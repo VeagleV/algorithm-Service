@@ -33,4 +33,8 @@ public class AlgoService {
     public List<TransportResponse> getTransports(List<Integer> transportIds) {
         return transportService.getAllTransports(transportIds);
     }
+
+    public WarehouseResponse getWarehouseById(int warehouseId) {
+        return warehouseService.getWarehouseById(warehouseId);
+    }
 }

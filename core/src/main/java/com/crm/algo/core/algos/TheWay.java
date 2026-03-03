@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class TheWay {
@@ -84,12 +85,10 @@ public class TheWay {
         List<WarehouseResponse> warehouseList = algoService.getWarehouses(warehousesId);
         //List<WarehouseResponse> warehouseList = http.request(warehousesId); // из списка выше получаем всю инфу об этих складах
         //List<TransportResponse> transportList = http.request(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
-        List<TransportResponse> transportList = algoService.getTransports(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
+        Set<TransportResponse> transportList = new HashSet<>(algoService.getTransports(warehousesId)); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
         // один раз заполняем все дистанции между src складом и остальныии
-        WarehouseResponse warehouseSrc = warehouseList.stream()
-                .filter(w -> w.getWarehouseId().equals(algoRequest.getWarehouseId()))
-                .findFirst()
-                .get();
+        WarehouseResponse warehouseSrc = algoService.getWarehouseById(algoRequest.getWarehouseId());
+        //warehouseSrc = warehouseList.get(algoRequest.getWarehouseId());
         String lon1 = warehouseSrc.getLongitude().toString(), lat1 = warehouseSrc.getLatitude().toString();
         for(WarehouseResponse warehouseResponse : warehouseList) {
             if(!warehouseDistance.containsKey(warehouseResponse.getWarehouseId())){
@@ -127,7 +126,6 @@ public class TheWay {
             }
             allAnswers.add(calculate(algoRequest, neededItems));
         }
-
         System.out.println(allAnswers);
     }
 
@@ -136,108 +134,128 @@ public class TheWay {
         for(ItemListResponse itemListResponse : neededItems) {
             warehouseItemQuantity.put(itemListResponse.getWarehouseId(), itemListResponse.getQuantity());
         }
+
         List<TransportModel> answer = List.of();
         if(algoRequest.getCondition() == Condition.CHEAPER){
-            answer = cheaper(algoRequest);
+            answer = cheaper(algoRequest, neededItems.getFirst().getItemId());
         } else if (algoRequest.getCondition() == Condition.FASTER) {
-            answer = faster(algoRequest);
+            answer = faster(algoRequest, neededItems.getFirst().getItemId());
         }
         return answer;
     }
 
-    private List<TransportModel> cheaper(AlgoRequest algoRequest) {
+    private List<TransportModel> cheaper(AlgoRequest algoRequest, Integer itemId) {
         List<TransportModel> answer = new ArrayList<>();
-        for(ShipmentRequest shipmentRequest : algoRequest.getShipmentRequestList()){
-            List<TransportModel> cheapers = new ArrayList<>();
-            Integer itemOverallQuantity = shipmentRequest.getQuantity();
-            for(TransportModel transportModel : transportModels){
-                transportModel.setItemQuantityToTransport(
-                        warehouseItemQuantity.get(transportModel.getWarehouseId()) > transportModel.getCapacity()
-                                ? transportModel.getCapacity()
-                                : warehouseItemQuantity.get(transportModel.getWarehouseId())
-                );
-                transportModel.setCostEfficiency(transportModel.getOverallCost() / transportModel.getItemQuantityToTransport());
+        List<TransportModel> cheapers = new ArrayList<>();
+
+        int itemOverallQuantity = algoRequest.getShipmentRequestList().stream()
+                .filter(shipmentRequest -> Objects.equals(shipmentRequest.getItemId(), itemId)).map(ShipmentRequest::getQuantity).reduce(0, Integer::sum);
+
+        Set<TransportModel> currentTransportModels = new HashSet<>(transportModels.stream()
+                .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
+                .toList());
+
+        for (TransportModel transportModel : currentTransportModels) {
+            transportModel.setItemQuantityToTransport(
+                    warehouseItemQuantity.get(transportModel.getWarehouseId()) > transportModel.getCapacity()
+                            ? transportModel.getCapacity()
+                            : warehouseItemQuantity.get(transportModel.getWarehouseId())
+            );
+            transportModel.setCostEfficiency(transportModel.getOverallCost() / transportModel.getItemQuantityToTransport());
+        }
+        boolean again = false;
+
+        PriorityQueue<TransportModel> minHeap = new PriorityQueue<>(Comparator.comparingDouble(TransportModel::getCostEfficiency));
+        minHeap.addAll(currentTransportModels);
+
+        int currentQuantity = 0;
+        while (currentQuantity < itemOverallQuantity) {
+            TransportModel transportModel = minHeap.poll();
+            boolean removed = currentTransportModels.remove(transportModel);
+            boolean sitllPresent = currentTransportModels.contains(transportModel);
+            int warehouseId = transportModel.getWarehouseId();
+            int itemQuantity = warehouseItemQuantity.get(warehouseId);
+            if (itemQuantity == 0) {
+                continue;
             }
-            PriorityQueue<TransportModel> minHeap = new PriorityQueue<>(Comparator.comparingDouble(TransportModel::getCostEfficiency));
-            minHeap.addAll(transportModels);
-            int currentQuantity = 0;
-            while(currentQuantity < itemOverallQuantity){
-                TransportModel transportModel = minHeap.poll();
-                int warehouseId = transportModel.getWarehouseId();
-                int itemQuantity = warehouseItemQuantity.get(warehouseId);
-                if(itemQuantity == 0){
+
+            transportModel.setItemQuantityToTransport(
+                    itemQuantity > transportModel.getCapacity()
+                            ? transportModel.getCapacity()
+                            : itemQuantity
+            );
+
+            warehouseItemQuantity.put(warehouseId, itemQuantity - transportModel.getItemQuantityToTransport());
+
+            for (TransportModel transportModel2 : minHeap.stream().toList()) {
+                if (transportModel2.getWarehouseId() != warehouseId) {
                     continue;
                 }
-                transportModel.setItemQuantityToTransport(
-                        itemQuantity > transportModel.getCapacity()
-                                ? transportModel.getCapacity()
-                                : itemQuantity
-                );
-                warehouseItemQuantity.put(warehouseId, itemQuantity - transportModel.getItemQuantityToTransport());
-                for(TransportModel transportModel2 : transportModels){
-                    if(transportModel2.getWarehouseId() != warehouseId){
-                        continue;
-                    }
-                    minHeap.remove(transportModel2);
-                    transportModel2.setCostEfficiency(transportModel2.getOverallCost() / transportModel2.getItemQuantityToTransport());
-                    minHeap.add(transportModel2);
-                }
-                currentQuantity += transportModel.getItemQuantityToTransport();
-                cheapers.add(transportModel);
+                minHeap.remove(transportModel2);
+                transportModel2.setCostEfficiency(transportModel2.getOverallCost() / transportModel2.getItemQuantityToTransport());
+                minHeap.add(transportModel2);
             }
-            cheapers.sort(Comparator.comparing(TransportModel::getItemQuantityToTransport));
-            Collections.reverse(cheapers);
-            currentQuantity = 0;
-            int i = 0;
-            while (currentQuantity < itemOverallQuantity){
-                currentQuantity += cheapers.get(i).getItemQuantityToTransport();
-                if(currentQuantity > itemOverallQuantity){
-                    cheapers.get(i).setItemQuantityToTransport(cheapers.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
-                }
-                answer.add(cheapers.get(i));
-                i++;
-            }
+            currentQuantity += transportModel.getItemQuantityToTransport();
+            cheapers.add(transportModel);
         }
+
+        cheapers.sort(Comparator.comparing(TransportModel::getItemQuantityToTransport));
+        Collections.reverse(cheapers);
+
+        currentQuantity = 0;
+        int i = 0;
+        while (currentQuantity < itemOverallQuantity) {
+            currentQuantity += cheapers.get(i).getItemQuantityToTransport();
+            if (currentQuantity > itemOverallQuantity) {
+                cheapers.get(i).setItemQuantityToTransport(cheapers.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
+            }
+            answer.add(cheapers.get(i));
+            i++;
+        }
+
         return answer;
     }
 
 
-    private List<TransportModel> faster(AlgoRequest algoRequest) {
+    private List<TransportModel> faster(AlgoRequest algoRequest, Integer itemId) {
         List<TransportModel> answer = new ArrayList<>();
-        for(ShipmentRequest shipmentRequest : algoRequest.getShipmentRequestList()){
-            List<TransportModel> fasters = new ArrayList<>();
-            int itemOverallQuantity = shipmentRequest.getQuantity();
-            transportModels.sort(Comparator.comparing(TransportModel::getOverallTime));
-            int currentQuantity = 0, i = 0;
-            while(currentQuantity < itemOverallQuantity){
-                Integer itemQuantity = warehouseItemQuantity.get(transportModels.get(i).getWarehouseId());
-                if(itemQuantity == 0) {
-                    i++; continue;
-                }
-                transportModels.get(i).setItemQuantityToTransport(
-                        itemQuantity > transportModels.get(i).getCapacity()
-                                ? transportModels.get(i).getCapacity()
-                                : itemQuantity
-                );
-                warehouseItemQuantity.put(transportModels.get(i).getWarehouseId(),
-                        itemQuantity - transportModels.get(i).getItemQuantityToTransport()
-                );
-                currentQuantity += transportModels.get(i).getItemQuantityToTransport();
-                fasters.add(transportModels.get(i));
+        List<TransportModel> fasters = new ArrayList<>();
+        int itemOverallQuantity = algoRequest.getShipmentRequestList().stream()
+                .filter(shipmentRequest -> Objects.equals(shipmentRequest.getItemId(), itemId)).map(ShipmentRequest::getQuantity).reduce(0, Integer::sum);
+
+        transportModels.sort(Comparator.comparing(TransportModel::getOverallTime));
+        int currentQuantity = 0, i = 0;
+        while (currentQuantity < itemOverallQuantity) {
+            Integer itemQuantity = warehouseItemQuantity.get(transportModels.get(i).getWarehouseId());
+            if (itemQuantity == 0) {
                 i++;
+                continue;
             }
-            fasters.sort(Comparator.comparing(TransportModel::getItemQuantityToTransport));
-            Collections.reverse(fasters);
-            currentQuantity = 0; i = 0;
-            while (currentQuantity < itemOverallQuantity){
-                currentQuantity += fasters.get(i).getItemQuantityToTransport();
-                if(currentQuantity > itemOverallQuantity){
-                    fasters.get(i).setItemQuantityToTransport(fasters.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
-                }
-                answer.add(fasters.get(i));
-                i++;
-            }
+            transportModels.get(i).setItemQuantityToTransport(
+                    itemQuantity > transportModels.get(i).getCapacity()
+                            ? transportModels.get(i).getCapacity()
+                            : itemQuantity
+            );
+            warehouseItemQuantity.put(transportModels.get(i).getWarehouseId(),
+                    itemQuantity - transportModels.get(i).getItemQuantityToTransport()
+            );
+            currentQuantity += transportModels.get(i).getItemQuantityToTransport();
+            fasters.add(transportModels.get(i));
+            i++;
         }
+        fasters.sort(Comparator.comparing(TransportModel::getItemQuantityToTransport));
+        Collections.reverse(fasters);
+        currentQuantity = 0;
+        i = 0;
+        while (currentQuantity < itemOverallQuantity) {
+            currentQuantity += fasters.get(i).getItemQuantityToTransport();
+            if (currentQuantity > itemOverallQuantity) {
+                fasters.get(i).setItemQuantityToTransport(fasters.get(i).getItemQuantityToTransport() - (currentQuantity - itemOverallQuantity));
+            }
+            answer.add(fasters.get(i));
+            i++;
+        }
+
         return answer;
     }
 

@@ -4,15 +4,19 @@ package com.crm.algo.core.services;
 import com.crm.algo.core.dto.WarehouseResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@FeignClient(name = "warehouse-Service", url = "http://172.27.127.143:81/api/warehouse/warehouse")
+@FeignClient(name = "warehouse-Service", url = "http://localhost:8081/warehouse")
 public interface WarehouseService {
 
+    @GetMapping("/{warehouseId}")
+    WarehouseResponse getWarehouseById(@PathVariable int warehouseId);
 
-    @GetMapping("/bulk")
+    @PostMapping("/bulk")
     List<WarehouseResponse> warehouseList(@RequestBody List<Integer> idList);
 
 }
