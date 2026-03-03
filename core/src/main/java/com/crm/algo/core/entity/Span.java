@@ -33,7 +33,7 @@ public class Span {
     @Column(name = "cost")
     private Double cost;
 
-    @Column(name = "time")
+    @Column(name = "time", columnDefinition = "INTERVAL")
     private Duration time;
 
     @Column(name = "item_quantity")
