@@ -1,39 +1,45 @@
 package com.crm.algo.core.entity;
 
+
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import com.crm.algo.core.entity.Waypoint;
+import lombok.NoArgsConstructor;
 
 import java.time.Duration;
 
 @Entity
-@Table(name = "Span")
+@Table(name = "span")
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Span {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "span_id")
     private int id;
 
-    @ManyToOne
-    @JoinColumn(name = "route_id")
-    private Route route;
+    @Column(name = "warehouse_id")
+    private Integer warehouseId;
+
+    @Column(name = "item_id")
+    private Integer itemId;
 
     @Column(name = "transport_id")
     private Integer transportId;
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "waypoint_src")
-    private Waypoint waypointSrc;
-
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "waypoint_dest")
-    private Waypoint waypointDest;
-
-    private Double distance;
-
+    @Column(name = "cost")
     private Double cost;
 
-    @Column(name = "time", columnDefinition = "INTERVAL")
+    @Column(name = "time")
     private Duration time;
+
+    @Column(name = "item_quantity")
+    private Integer itemQuantity;
+
+    @Column(name = "route_id")
+    private Integer routeId;
+
 }

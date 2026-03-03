@@ -3,10 +3,8 @@ package com.crm.algo.core.controllers;
 
 import com.crm.algo.core.algos.TheWay;
 import com.crm.algo.core.dto.AlgoRequest;
-import com.crm.algo.core.enums.TransportType;
 import com.crm.algo.core.exceptions.NotEnoughItemsException;
 import com.crm.algo.core.exceptions.NotEnoughTransportsException;
-import com.crm.algo.core.models.TransportModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/algo")
@@ -36,4 +33,6 @@ public class AlgoController {
 
         return ResponseEntity.ok().build();
     }
+
+
 }

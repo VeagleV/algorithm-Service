@@ -1,6 +1,8 @@
 package com.crm.algo.core.algos;
 
 import com.crm.algo.core.dto.*;
+import com.crm.algo.core.entity.Route;
+import com.crm.algo.core.entity.Span;
 import com.crm.algo.core.enums.Condition;
 import com.crm.algo.core.exceptions.NotEnoughItemsException;
 import com.crm.algo.core.exceptions.NotEnoughTransportsException;
@@ -13,6 +15,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+import com.crm.algo.core.repositories.RouteRepository;
+import com.crm.algo.core.repositories.SpanRepository;
 import com.crm.algo.core.services.AlgoService;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,17 +29,21 @@ import java.util.*;
 public class TheWay {
 
     private final AlgoService algoService;
+    private final RouteRepository routeRepository;
+    private final SpanRepository spanRepository;
 
 
     @Value("${API_KEY}")
     String API_KEY;
 
-    private Map<Integer, Integer> warehouseItemQuantity = new HashMap<>();
-    private List<TransportModel> transportModels = new ArrayList<>();
-    private Map<Integer, Double> warehouseDistance = new HashMap<>();
+    private final Map<Integer, Integer> warehouseItemQuantity = new HashMap<>();
+    private final List<TransportModel> transportModels = new ArrayList<>();
+    private final Map<Integer, Double> warehouseDistance = new HashMap<>();
 
-    public TheWay(AlgoService algoService) {
+    public TheWay(AlgoService algoService, RouteRepository routeRepository, SpanRepository spanRepository) {
         this.algoService = algoService;
+        this.routeRepository = routeRepository;
+        this.spanRepository = spanRepository;
     }
 
     public double DistanceGetter(String lon1, String lat1, String lon2, String lat2) {
@@ -46,7 +54,7 @@ public class TheWay {
                 lon2, lat2
         );
 
-        HttpRequest request = null;
+        HttpRequest request;
         try {
             request = HttpRequest.newBuilder(new URI(url))
                     .header("Authorization", API_KEY)
@@ -66,17 +74,20 @@ public class TheWay {
             throw new RuntimeException(e);
         }
         JSONObject jsonObj = new JSONObject(response.body());
-        double distance = jsonObj
+
+        return jsonObj
                 .getJSONArray("features")
                 .getJSONObject(0)
                 .getJSONObject("properties")
                 .getJSONObject("summary")
                 .getDouble("distance");
-
-        return distance;
     }
 
     public void mainCalculate(AlgoRequest algoRequest) throws NotEnoughItemsException, NotEnoughTransportsException {
+        Integer routeId = routeRepository.save(
+                new Route(algoRequest.getRequestId())
+                ).getId();
+
         List<Integer> itemsId = algoRequest.getShipmentRequestList().stream().map(ShipmentRequest::getItemId).toList();
         //<ItemListResponse> itemList = http.request(itemId, warehouseId);
         List<ItemListResponse> itemList = algoService.getItemLists(itemsId);
@@ -128,6 +139,8 @@ public class TheWay {
             allAnswers.add(calculate(algoRequest, neededItems));
         }
         System.out.println(allAnswers);
+
+        saveSpans(mapRoutes(allAnswers, itemsId, routeId));
     }
 
     public List<TransportModel> calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) throws NotEnoughTransportsException {
@@ -168,7 +181,6 @@ public class TheWay {
             );
             transportModel.setCostEfficiency(transportModel.getOverallCost() / transportModel.getItemQuantityToTransport());
         }
-        boolean again = false;
 
         PriorityQueue<TransportModel> minHeap = new PriorityQueue<>(Comparator.comparingDouble(TransportModel::getCostEfficiency));
         minHeap.addAll(currentTransportModels);
@@ -176,8 +188,6 @@ public class TheWay {
         int currentQuantity = 0;
         while (currentQuantity < itemOverallQuantity) {
             TransportModel transportModel = minHeap.poll();
-            boolean removed = currentTransportModels.remove(transportModel);
-            boolean sitllPresent = currentTransportModels.contains(transportModel);
             int warehouseId = transportModel.getWarehouseId();
             int itemQuantity = warehouseItemQuantity.get(warehouseId);
             if (itemQuantity == 0) {
@@ -272,4 +282,30 @@ public class TheWay {
         return answer;
     }
 
+    private List<Span> mapRoutes(List<List<TransportModel>> allRoutes, List<Integer> itemIdList, Integer routeId){
+        Integer currentItemId;
+        List<Span> spans = new ArrayList<>();
+        for(int c = 0; c < allRoutes.size(); c++){
+            currentItemId = itemIdList.get(c);
+            for(int c17 = 0; c17 < allRoutes.get(c).size(); c17++){
+                TransportModel transportModel = allRoutes.get(c).get(c17);
+                spans.add(
+                        Span.builder()
+                                .routeId(routeId)
+                                .transportId(transportModel.getTransportId())
+                                .warehouseId(transportModel.getWarehouseId())
+                                .itemId(currentItemId)
+                                .cost(transportModel.getOverallCost())
+                                .time(transportModel.getOverallTime())
+                                .itemQuantity(transportModel.getItemQuantityToTransport())
+                                .build()
+                );
+            }
+        }
+        return spans;
+    }
+
+    private void saveSpans(List<Span> spans){
+        spanRepository.saveAll(spans);
+    }
 }

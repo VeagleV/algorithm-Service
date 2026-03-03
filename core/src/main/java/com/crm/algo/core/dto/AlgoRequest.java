@@ -13,6 +13,9 @@ import java.util.List;
 @AllArgsConstructor
 public class AlgoRequest {
 
+    @JsonProperty("request_id")
+    private Integer requestId;
+
     @JsonProperty("warehouse_id")
     private Integer warehouseId;
 
