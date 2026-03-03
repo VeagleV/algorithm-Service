@@ -16,7 +16,7 @@ import java.util.List;
 
 
 @RestController
-@RequestMapping("/api/algo")
+@RequestMapping("/algo")
 public class AlgoController {
 
     private final TheWay theWay;

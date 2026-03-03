@@ -13,10 +13,10 @@ import java.util.List;
 @FeignClient(name = "warehouse-Service")
 public interface WarehouseService {
 
-    @GetMapping("/{warehouseId}")
+    @GetMapping("/warehouse/{warehouseId}")
     WarehouseResponse getWarehouseById(@PathVariable int warehouseId);
 
-    @PostMapping("/bulk")
+    @PostMapping("/warehouse/bulk")
     List<WarehouseResponse> warehouseList(@RequestBody List<Integer> idList);
 
 }

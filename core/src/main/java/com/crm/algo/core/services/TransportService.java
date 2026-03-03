@@ -12,7 +12,7 @@ import java.util.List;
 @FeignClient(name = "transport-Management-Service")
 public interface TransportService {
 
-    @PostMapping("/transportsByWarehouses")
+    @PostMapping("/transports/transportsByWarehouses")
     List<TransportResponse> getAllTransports(@RequestBody List<Integer> warehousesId);
 
 }

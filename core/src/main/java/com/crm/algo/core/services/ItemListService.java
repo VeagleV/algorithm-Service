@@ -12,7 +12,7 @@ import java.util.List;
 @FeignClient(name = "item-Management-Service")
 public interface ItemListService {
 
-    @PostMapping("/itemsList/items")
+    @PostMapping("/items/itemsList/items")
     List<ItemListResponse> getItemListsById(@RequestBody List<Integer> idList);
 
 }
