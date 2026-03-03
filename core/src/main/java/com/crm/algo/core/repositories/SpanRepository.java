@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface SpanRepository extends JpaRepository<Span, Integer> {
     List<Span> findAllSpanByRouteId(Integer routeId);
+
 }

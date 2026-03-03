@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import java.time.Duration;
 
 @Entity
-@Table(name = "span")
+@Table(name = "Span")
 @Data
 @Builder
 @NoArgsConstructor
