@@ -171,7 +171,7 @@ public class TheWay {
                 .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
                 .toList());
 
-        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) >= itemOverallQuantity){
+        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) < itemOverallQuantity){
             throw new NotEnoughTransportsException("Нет столько транспорта для перевозки товара " + itemId);
         }
 
@@ -244,7 +244,7 @@ public class TheWay {
                 .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
                 .toList());
 
-        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) >= itemOverallQuantity){
+        if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) < itemOverallQuantity){
             throw new NotEnoughTransportsException("Нет столько транспорта для перевозки товара " + itemId);
         }
 
