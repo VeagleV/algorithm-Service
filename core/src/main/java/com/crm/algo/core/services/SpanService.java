@@ -37,4 +37,11 @@ public class SpanService {
         return routeResponseList;
     }
 
+    public List<SpanResponse> getSpansByRouteId(Integer routeId) {
+        List<Span> spans = spanRepository.findAllSpanByRouteId(routeId);
+        return spans.stream()
+                .map(SpanMapper::createSpanResponse)
+                .toList();
+    }
+
 }
