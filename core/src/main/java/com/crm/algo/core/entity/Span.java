@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Duration;
 
@@ -34,6 +36,7 @@ public class Span {
     private Double cost;
 
     @Column(name = "time", columnDefinition = "INTERVAL")
+    @JdbcTypeCode(SqlTypes.INTERVAL_SECOND)
     private Duration time;
 
     @Column(name = "item_quantity")
