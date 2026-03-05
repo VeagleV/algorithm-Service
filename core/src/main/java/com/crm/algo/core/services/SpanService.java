@@ -7,10 +7,8 @@ import com.crm.algo.core.entity.Span;
 import com.crm.algo.core.mappers.SpanMapper;
 import com.crm.algo.core.repositories.SpanRepository;
 import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class SpanService {
