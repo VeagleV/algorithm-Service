@@ -19,6 +19,7 @@ import com.crm.algo.core.repositories.RouteRepository;
 import com.crm.algo.core.repositories.SpanRepository;
 import com.crm.algo.core.services.AlgoService;
 import org.json.JSONObject;
+import org.profiling.Profiling;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,7 @@ import java.time.Duration;
 import java.util.*;
 
 @Component
+@Profiling
 public class TheWay {
 
     private final AlgoService algoService;

@@ -5,11 +5,13 @@ import com.crm.algo.core.dto.ItemListResponse;
 import com.crm.algo.core.dto.TransportResponse;
 import com.crm.algo.core.dto.WarehouseResponse;
 import com.crm.algo.core.repositories.SpanRepository;
+import org.profiling.Profiling;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@Profiling
 public class AlgoService {
 
     private final ItemListService itemListService;
