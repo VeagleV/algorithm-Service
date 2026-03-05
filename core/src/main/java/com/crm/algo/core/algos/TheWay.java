@@ -86,24 +86,26 @@ public class TheWay {
     }
 
     public void mainCalculate(AlgoRequest algoRequest) throws NotEnoughItemsException, NotEnoughTransportsException {
+        prepareAlgo();
+
         Integer routeId = routeRepository.save(
                 new Route(algoRequest.getRequestId())
                 ).getId();
 
         List<Integer> itemsId = algoRequest.getShipmentRequestList().stream().map(ShipmentRequest::getItemId).toList();
-        //<ItemListResponse> itemList = http.request(itemId, warehouseId);
+
         List<ItemListResponse> itemList = algoService.getItemLists(itemsId);
         List<Integer> warehousesId = itemList.stream()
                 .map(ItemListResponse::getWarehouseId)
                 .toList(); // получаем все warehouse`ы из itemList`а
         List<WarehouseResponse> warehouseList = algoService.getWarehouses(warehousesId);
-        //List<WarehouseResponse> warehouseList = http.request(warehousesId); // из списка выше получаем всю инфу об этих складах
-        //List<TransportResponse> transportList = http.request(warehousesId); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
+
         Set<TransportResponse> transportList = new HashSet<>(algoService.getTransports(warehousesId)); // из списка n - 2 получаем весь транспорт с которым можно взаимодействовать
-        // один раз заполняем все дистанции между src складом и остальныии
+
         WarehouseResponse warehouseSrc = algoService.getWarehouseById(algoRequest.getWarehouseId());
-        //warehouseSrc = warehouseList.get(algoRequest.getWarehouseId());
+
         String lon1 = warehouseSrc.getLongitude().toString(), lat1 = warehouseSrc.getLatitude().toString();
+        
         for(WarehouseResponse warehouseResponse : warehouseList) {
             if(!warehouseDistance.containsKey(warehouseResponse.getWarehouseId())){
                 String lon2 = warehouseResponse.getLongitude().toString(), lat2 = warehouseResponse.getLatitude().toString();
@@ -116,7 +118,7 @@ public class TheWay {
                     .warehouseId(transportResponse.getWarehouseId())
                     .transportId(transportResponse.getTransportId())
                     .overallCost(warehouseDistance.get(transportResponse.getWarehouseId()) * transportResponse.getCostPerKm())
-                    .overallTime(Duration.ofMinutes((long) (warehouseDistance.get(transportResponse.getWarehouseId()) / transportResponse.getSpeed()) * 60))
+                    .overallTime(Duration.ofSeconds((long) (((warehouseDistance.get(transportResponse.getWarehouseId()) / 1000.0) / transportResponse.getSpeed()) * 60.0 * 60.0)))
                     .capacity(transportResponse.getCapacity())
                     .build();
             transportModels.add(transportModel);
@@ -143,6 +145,12 @@ public class TheWay {
         System.out.println(allAnswers);
 
         saveSpans(mapRoutes(allAnswers, itemsId, routeId));
+    }
+
+    private void prepareAlgo() {
+        warehouseItemQuantity.clear();
+        transportModels.clear();
+        warehouseDistance.clear();
     }
 
     public List<TransportModel> calculate( AlgoRequest algoRequest, List<ItemListResponse> neededItems) throws NotEnoughTransportsException {
@@ -240,32 +248,35 @@ public class TheWay {
         int itemOverallQuantity = algoRequest.getShipmentRequestList().stream()
                 .filter(shipmentRequest -> Objects.equals(shipmentRequest.getItemId(), itemId)).map(ShipmentRequest::getQuantity).reduce(0, Integer::sum);
 
-        Set<TransportModel> currentTransportModels = new HashSet<>(transportModels.stream()
+        Set<TransportModel> hashedTransportModels = new HashSet<>(transportModels.stream()
                 .filter(transportModel -> warehouseItemQuantity.containsKey(transportModel.getWarehouseId()))
                 .toList());
+
+        List<TransportModel> currentTransportModels = new ArrayList<>(hashedTransportModels);
 
         if(currentTransportModels.stream().map(TransportModel::getCapacity).reduce(0, Integer::sum) < itemOverallQuantity){
             throw new NotEnoughTransportsException("Нет столько транспорта для перевозки товара " + itemId);
         }
 
-        transportModels.sort(Comparator.comparing(TransportModel::getOverallTime));
+        currentTransportModels.sort(Comparator.comparing(TransportModel::getOverallTime));
+
         int currentQuantity = 0, i = 0;
         while (currentQuantity < itemOverallQuantity) {
-            Integer itemQuantity = warehouseItemQuantity.get(transportModels.get(i).getWarehouseId());
+            Integer itemQuantity = warehouseItemQuantity.get(currentTransportModels.get(i).getWarehouseId());
             if (itemQuantity == 0) {
                 i++;
                 continue;
             }
-            transportModels.get(i).setItemQuantityToTransport(
-                    itemQuantity > transportModels.get(i).getCapacity()
-                            ? transportModels.get(i).getCapacity()
+            currentTransportModels.get(i).setItemQuantityToTransport(
+                    itemQuantity > currentTransportModels.get(i).getCapacity()
+                            ? currentTransportModels.get(i).getCapacity()
                             : itemQuantity
             );
-            warehouseItemQuantity.put(transportModels.get(i).getWarehouseId(),
-                    itemQuantity - transportModels.get(i).getItemQuantityToTransport()
+            warehouseItemQuantity.put(currentTransportModels.get(i).getWarehouseId(),
+                    itemQuantity - currentTransportModels.get(i).getItemQuantityToTransport()
             );
-            currentQuantity += transportModels.get(i).getItemQuantityToTransport();
-            fasters.add(transportModels.get(i));
+            currentQuantity += currentTransportModels.get(i).getItemQuantityToTransport();
+            fasters.add(currentTransportModels.get(i));
             i++;
         }
         fasters.sort(Comparator.comparing(TransportModel::getItemQuantityToTransport));

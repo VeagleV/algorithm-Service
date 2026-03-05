@@ -4,6 +4,8 @@ import com.crm.algo.core.entity.Route;
 import com.crm.algo.core.repositories.RouteRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class RouteService {
 
@@ -13,7 +15,7 @@ public class RouteService {
         this.routeRepository = routeRepository;
     }
 
-    public Route getRouteByRequestId(Integer requestId) {
+    public List<Route> getRouteByRequestId(Integer requestId) {
         return routeRepository.findByRequestId(requestId);
     }
 }

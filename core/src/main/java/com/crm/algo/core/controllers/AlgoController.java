@@ -3,7 +3,9 @@ package com.crm.algo.core.controllers;
 
 import com.crm.algo.core.algos.TheWay;
 import com.crm.algo.core.dto.AlgoRequest;
+import com.crm.algo.core.dto.RouteResponse;
 import com.crm.algo.core.dto.SpanResponse;
+import com.crm.algo.core.entity.Route;
 import com.crm.algo.core.exceptions.NotEnoughItemsException;
 import com.crm.algo.core.exceptions.NotEnoughTransportsException;
 import com.crm.algo.core.services.AlgoService;
@@ -39,8 +41,8 @@ public class AlgoController {
     }
 
     @GetMapping("/algoResult/{requestId}")
-    public ResponseEntity<List<SpanResponse>> getAlgoResult(@PathVariable Integer requestId) {
-        List< SpanResponse> response =  spanService.getSpans(requestId);
+    public ResponseEntity<List<RouteResponse>> getAlgoResult(@PathVariable Integer requestId) {
+        List<RouteResponse> response =  spanService.getSpans(requestId);
         return ResponseEntity.ok(response);
     }
 

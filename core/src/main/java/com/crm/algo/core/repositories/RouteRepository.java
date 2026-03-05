@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface RouteRepository extends JpaRepository<Route, Integer> {
-    Route findByRequestId(Integer requestId);
+    List<Route> findByRequestId(Integer requestId);
 }
