@@ -41,6 +41,7 @@ public class AlgoController {
     @GetMapping("/algoResult/{requestId}")
     public ResponseEntity<List<RouteResponse>> getAlgoResult(@PathVariable Integer requestId) {
         List<RouteResponse> spanResponseList =  spanService.getSpans(requestId);
+        if (spanResponseList.isEmpty()) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         return new ResponseEntity<>(spanResponseList, HttpStatus.OK);
     }
 
@@ -48,6 +49,7 @@ public class AlgoController {
     @GetMapping("/spans")
     public ResponseEntity<List<SpanResponse>> getSpansByRouteId(@RequestParam Integer routeId) {
         List<SpanResponse> spanResponseList = spanService.getSpansByRouteId(routeId);
+        if (spanResponseList.isEmpty()) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         return new ResponseEntity<>(spanResponseList, HttpStatus.OK);
     }
 
